@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-surface-950 text-white font-sans antialiased;
+  }
+  ::selection {
+    @apply bg-brand-500/30 text-white;
+  }
+}
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #12121a;
+}
+::-webkit-scrollbar-thumb {
+  background: #252533;
+  border-radius: 6px;
+  border: 2px solid #12121a;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #363646;
+}
+
+/* ── Utility classes for glass cards ── */
+@layer components {
+  .glass-card {
+    @apply bg-surface-900/60 border border-surface-700/60 backdrop-blur-sm rounded-2xl;
+  }
+  .brand-gradient {
+    @apply bg-gradient-to-r from-brand-500 to-amber-400 bg-clip-text text-transparent;
+  }
+}
