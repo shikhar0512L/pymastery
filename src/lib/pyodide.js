@@ -196,17 +196,94 @@ export async function runCodeChallenge(userCode, tests) {
   pyodide.globals.set('__pym_user_code', userCode);
   pyodide.globals.set('__pym_tests_json', JSON.stringify(tests));
 
-  // ✅ Multi-line test input support:
-  //   - single line  → eval directly (fast path)
-  //   - multi-line   → exec all but last line, then eval the last
-  // This matches how a Python REPL shows the final expression's value.
+  // ═══════════════════════════════════════════════════════════
+  //  Test runner — deeply defensive value normalization
+  //
+  //  Handles:
+  //   • NumPy 2.x scalar reprs (np.int64(5) → 5)
+  //   • NumPy arrays (array([1,2,3]) → [1, 2, 3])
+  //   • Sets / frozensets → sorted for deterministic order
+  //   • Nested sets inside lists/dicts/tuples
+  //   • Dict key ordering → sorted
+  //   • Negative zero → positive zero
+  //   • Mixed-type sets (fallback key=repr)
+  //   • Trailing whitespace in expected strings
+  //   • Multi-line test inputs (exec all but last, eval the last)
+  // ═══════════════════════════════════════════════════════════
   const PYTHON_RUNNER = `
 import json as __pym_json
 import io as __pym_io
 import sys as __pym_sys
 import warnings as __pym_warnings
+import ast as __pym_ast
 __pym_warnings.filterwarnings("ignore", category=DeprecationWarning)
 __pym_warnings.filterwarnings("ignore", category=FutureWarning)
+
+def __pym_norm_value(v, depth=0):
+    if depth > 12:
+        return repr(v)
+
+    # NumPy detection (soft import)
+    try:
+        import numpy as __pym_np
+    except Exception:
+        __pym_np = None
+
+    if __pym_np is not None:
+        if isinstance(v, __pym_np.generic):
+            v = v.item()                  # np.int64(5) → 5
+        elif isinstance(v, __pym_np.ndarray):
+            v = v.tolist()                # array([1,2,3]) → [1, 2, 3]
+
+    # Negative zero → positive zero
+    if isinstance(v, float) and v == 0.0:
+        v = 0.0
+
+    # Sets — sort for deterministic order
+    if isinstance(v, (set, frozenset)):
+        try:
+            items = sorted(v)
+        except TypeError:
+            items = sorted(v, key=repr)
+        if not items:
+            return 'set()' if isinstance(v, set) else 'frozenset()'
+        return '{' + ', '.join(__pym_norm_value(x, depth + 1) for x in items) + '}'
+
+    # Lists — recurse
+    if isinstance(v, list):
+        return '[' + ', '.join(__pym_norm_value(x, depth + 1) for x in v) + ']'
+
+    # Tuples — handle single-element trailing comma
+    if isinstance(v, tuple):
+        if len(v) == 1:
+            return '(' + __pym_norm_value(v[0], depth + 1) + ',)'
+        return '(' + ', '.join(__pym_norm_value(x, depth + 1) for x in v) + ')'
+
+    # Dicts — sort by keys
+    if isinstance(v, dict):
+        try:
+            items = sorted(v.items())
+        except TypeError:
+            items = sorted(v.items(), key=lambda kv: repr(kv[0]))
+        if not items:
+            return '{}'
+        return '{' + ', '.join(
+            __pym_norm_value(k, depth + 1) + ': ' + __pym_norm_value(val, depth + 1)
+            for k, val in items
+        ) + '}'
+
+    # Fallback
+    return repr(v)
+
+def __pym_norm_expected(s):
+    if s is None:
+        return 'None'
+    s = str(s).strip()
+    try:
+        val = __pym_ast.literal_eval(s)
+        return __pym_norm_value(val)
+    except Exception:
+        return s
 
 def __pym_run_tests():
     user_code = __pym_user_code
@@ -224,19 +301,22 @@ def __pym_run_tests():
             raw = t['input'].strip()
             lines = raw.split('\\n')
             if len(lines) == 1:
-                actual = repr(eval(lines[0], ns))
+                result = eval(lines[0], ns)
             else:
                 exec('\\n'.join(lines[:-1]), ns)
-                actual = repr(eval(lines[-1], ns))
+                result = eval(lines[-1], ns)
+            actual = __pym_norm_value(result)
         except Exception as e:
             error = type(e).__name__ + ": " + str(e)
         finally:
             __pym_sys.stdout = old
 
-        passed = (error is None) and (actual == t['expected'])
+        expected = __pym_norm_expected(t['expected'])
+        passed = (error is None) and (actual == expected)
+
         results.append({
             'input': t['input'],
-            'expected': t['expected'],
+            'expected': expected,
             'actual': actual if actual is not None else (error or ''),
             'passed': passed,
             'error': error,
