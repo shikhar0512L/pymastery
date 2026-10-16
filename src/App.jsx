@@ -10,11 +10,11 @@ import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import NotFound from './pages/NotFound';
 import useProgressSync from './hooks/useProgressSync';
-import useTrackPageView from './hooks/useTrackPageView';   // 🆕
+import useTrackPageView from './hooks/useTrackPageView';
 
 export default function App() {
   useProgressSync();
-  useTrackPageView();                                      // 🆕
+  useTrackPageView();
 
   return (
     <div className="min-h-screen bg-surface-950">
@@ -37,4 +37,4 @@ export default function App() {
       <AssistantBubble />
     </div>
   );
-}
+};

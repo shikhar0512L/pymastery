@@ -72,17 +72,21 @@ export default function MCQChallenge({
           <MathText>{challenge.question}</MathText>
         </div>
 
-        {challenge.type === 'code-fill' ? (
-          <CodeFillDisplay
-            code={challenge.code}
-            options={challenge.options}
-            selected={selected}
-            revealed={revealed}
-            correctIdx={challenge.correct}
-          />
-        ) : challenge.code ? (
-          <CodeBlock code={challenge.code} language="python" runnable />
-        ) : null}
+{challenge.type === 'code-fill' ? (
+  <CodeFillDisplay
+    code={challenge.code}
+    options={challenge.options}
+    selected={selected}
+    revealed={revealed}
+    correctIdx={challenge.correct}
+  />
+) : challenge.code ? (
+  <CodeBlock
+    code={challenge.code}
+    language="python"
+    runnable={challenge.type !== 'predict-output' && challenge.type !== 'mcq'}
+  />
+) : null}
 
         {/* Options */}
         <div className="space-y-2">

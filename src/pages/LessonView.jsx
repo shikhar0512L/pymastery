@@ -101,7 +101,7 @@ export default function LessonView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-10 pb-32 sm:px-6 sm:pb-36">
       {/* Breadcrumb */}
       <div className="mb-6 flex flex-wrap items-center gap-2 text-xs text-surface-600">
         <Link to="/" className="transition-colors hover:text-white">
