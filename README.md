@@ -130,7 +130,6 @@ MIT — free to use, modify, and learn from.
 **Shikhar Singh**
 
 - 🌐 Portfolio: [shikhar-singh-in.web.app](https://shikhar-singh-in.web.app)
-- 💼 LinkedIn: [linkedin.com/in/shikhar-singh](https://www.linkedin.com/in/shikhar-singh)
 - 🐙 GitHub: [@shikhar0512L](https://github.com/shikhar0512L)
 
 ---
