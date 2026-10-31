@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getModuleById, getLessonStatus } from '../data/modules';
 import { getLesson } from '../data/python';
 import SectionRenderer from '../components/lesson/SectionRenderer';
 import ChallengeCard from '../components/lesson/ChallengeCard';
+import LessonNotes from '../components/lesson/LessonNotes';
+import Confetti from '../components/Confetti';
 import useProgress from '../store/useProgress';
 
 const difficultyStyles = {
@@ -17,14 +19,19 @@ export default function LessonView() {
   const module = getModuleById(moduleId);
   const lesson = getLesson(moduleId, lessonId);
 
-  const { completedChallenges, completeLesson, completedLessons } = useProgress();
+  const {
+    completedChallenges,
+    completeLesson,
+    completedLessons,
+    setLastActiveModule,
+    bookmarks,
+    toggleBookmark,
+  } = useProgress();
 
-  // ── Sanitized lessons list — removes any undefined/null entries ──
   const lessons = Array.isArray(module?.lessons)
     ? module.lessons.filter((l) => l && l.id)
     : [];
 
-  // ── Challenge progress ──
   const challenges = Array.isArray(lesson?.challenges) ? lesson.challenges : [];
   const answeredCount = challenges.filter(
     (c) => c && `${moduleId}:${lessonId}:${c.id}` in completedChallenges
@@ -34,15 +41,27 @@ export default function LessonView() {
   const allAnswered = totalChallenges > 0 && answeredCount === totalChallenges;
   const lessonKey = `${moduleId}:${lessonId}`;
   const lessonDone = lessonKey in completedLessons;
+  const isBookmarked = !!(bookmarks || {})[lessonKey];
 
-  // ── Auto-complete lesson when all challenges answered ──
+  const wasDoneOnMount = useRef(lessonDone);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (lessonDone && !wasDoneOnMount.current) {
+      setShowConfetti(true);
+    }
+  }, [lessonDone]);
+
   useEffect(() => {
     if (allAnswered && !lessonDone) {
       completeLesson(moduleId, lessonId);
     }
   }, [allAnswered, lessonDone, moduleId, lessonId, completeLesson]);
 
-  // ── Prev / Next detection (safe) ──
+  useEffect(() => {
+    if (moduleId) setLastActiveModule(moduleId);
+  }, [moduleId, setLastActiveModule]);
+
   const currentIdx = lessons.findIndex((l) => l.id === lessonId);
   const prevLesson = currentIdx > 0 ? lessons[currentIdx - 1] : null;
   const nextLesson =
@@ -50,7 +69,6 @@ export default function LessonView() {
       ? lessons[currentIdx + 1]
       : null;
 
-  // 🔒 Lock guard — direct URL access block
   if (module && lesson) {
     const status = getLessonStatus(module, lessonId, completedLessons);
     if (status === 'locked') {
@@ -102,6 +120,8 @@ export default function LessonView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 pb-32 sm:px-6 sm:pb-36">
+      {showConfetti && <Confetti onDone={() => setShowConfetti(false)} />}
+
       {/* Breadcrumb */}
       <div className="mb-6 flex flex-wrap items-center gap-2 text-xs text-surface-600">
         <Link to="/" className="transition-colors hover:text-white">
@@ -141,6 +161,19 @@ export default function LessonView() {
               ✓ Completed
             </span>
           )}
+
+          <button
+            onClick={() => toggleBookmark(moduleId, lessonId)}
+            title={isBookmarked ? 'Remove bookmark' : 'Bookmark this lesson'}
+            className={`ml-auto flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+              isBookmarked
+                ? 'border-amber-500/40 bg-amber-500/15 text-amber-400 hover:bg-amber-500/20'
+                : 'border-surface-700 bg-surface-900 text-surface-500 hover:border-amber-500/40 hover:text-amber-400'
+            }`}
+          >
+            <span className={isBookmarked ? '' : 'opacity-60'}>🔖</span>
+            <span>{isBookmarked ? 'Saved' : 'Save'}</span>
+          </button>
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
           {lesson.title}
@@ -148,11 +181,14 @@ export default function LessonView() {
       </header>
 
       {/* Intro */}
-      <div className="mb-8 rounded-xl border-l-2 border-brand-500 bg-surface-900/60 p-4">
+      <div className="mb-6 rounded-xl border-l-2 border-brand-500 bg-surface-900/60 p-4">
         <p className="text-[15px] leading-relaxed text-slate-200">
           {lesson.intro}
         </p>
       </div>
+
+      {/* Notes */}
+      <LessonNotes moduleId={moduleId} lessonId={lessonId} />
 
       {/* Sections */}
       <div className="space-y-6">

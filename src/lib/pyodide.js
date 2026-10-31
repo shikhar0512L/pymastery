@@ -75,7 +75,7 @@ function loadScript(src) {
       reject(new Error('Failed to load Pyodide from CDN'));
     document.head.appendChild(script);
   });
-}
+};
 
 export function getPyodide() {
   if (!pyodidePromise) {

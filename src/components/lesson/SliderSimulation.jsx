@@ -19,12 +19,14 @@ export default function SliderSimulation({ section }) {
   const formulaText = typeof formula === 'function' ? formula(params) : null;
 
   return (
-    <div className="space-y-4 rounded-2xl border border-surface-700 bg-surface-900/40 p-4 sm:p-5">
+    <div className="space-y-3 rounded-2xl border border-surface-700 bg-surface-900/40 p-3 sm:space-y-4 sm:p-5">
       {title && (
         <div>
-          <h4 className="text-[15px] font-semibold text-white">{title}</h4>
+          <h4 className="text-sm font-semibold text-white sm:text-[15px]">
+            {title}
+          </h4>
           {description && (
-            <p className="mt-1 text-[13px] text-surface-600">
+            <p className="mt-1 text-xs text-surface-600 sm:text-[13px]">
               <MathText>{description}</MathText>
             </p>
           )}
@@ -34,17 +36,17 @@ export default function SliderSimulation({ section }) {
       <Graph {...graphProps} />
 
       {sliders.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
           {sliders.map((s) => (
             <div
               key={s.id}
               className="rounded-lg border border-surface-700 bg-surface-950/40 p-3"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-[12px] font-medium text-slate-300">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] font-medium text-slate-300 sm:text-[12px]">
                   <MathText>{`$${s.label}$`}</MathText>
                 </label>
-                <span className="font-mono text-[12px] font-semibold text-brand-400">
+                <span className="font-mono text-[11px] font-semibold text-brand-400 sm:text-[12px]">
                   {Number(params[s.id]).toFixed(s.decimals ?? 2)}
                 </span>
               </div>
@@ -63,15 +65,15 @@ export default function SliderSimulation({ section }) {
       )}
 
       {formulaText && (
-        <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-4 py-3 text-center">
-          <MathText className="text-[15px] text-cyan-300">
+        <div className="overflow-x-auto rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-3 py-2.5 text-center sm:px-4 sm:py-3">
+          <MathText className="text-[13px] text-cyan-300 sm:text-[15px]">
             {`$$${formulaText}$$`}
           </MathText>
         </div>
       )}
 
       {caption && (
-        <p className="text-[12px] text-surface-600">
+        <p className="text-[11px] text-surface-600 sm:text-[12px]">
           <MathText>{caption}</MathText>
         </p>
       )}

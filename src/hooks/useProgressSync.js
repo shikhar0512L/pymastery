@@ -12,10 +12,13 @@ export default function useProgressSync() {
   const syncedRef = useRef(false);
   const pushTimerRef = useRef(null);
 
-  // ── On login: pull from cloud, merge with local, push merged back ──
   useEffect(() => {
     if (!isLoaded) return;
+    const state = useProgress.getState();
+    const linkedUserId = state.linkedUserId;
+
     if (!userId) {
+      if (linkedUserId) useProgress.getState().reset();
       syncedRef.current = false;
       return;
     }
@@ -27,66 +30,45 @@ export default function useProgressSync() {
       try {
         const ref = doc(db, 'progress', userId);
         const snap = await getDoc(ref);
-
         if (cancelled) return;
 
-        const state = useProgress.getState();
-        const local = extractProgress(state);
+        const local = extractProgress(useProgress.getState());
 
         if (snap.exists()) {
           const cloud = snap.data();
           const merged = mergeProgress(local, cloud);
-          useProgress.setState(merged);
-          await setDoc(ref, {
-            ...merged,
-            lastSync: new Date().toISOString(),
-          });
+          useProgress.setState({ ...merged, linkedUserId: userId });
+          await setDoc(ref, { ...merged, lastSync: new Date().toISOString() });
         } else {
-          await setDoc(ref, {
-            ...local,
-            lastSync: new Date().toISOString(),
-          });
+          useProgress.setState({ ...local, linkedUserId: userId });
+          await setDoc(ref, { ...local, lastSync: new Date().toISOString() });
         }
-
         syncedRef.current = true;
       } catch (e) {
         console.warn('[sync] pull failed:', e);
-        // Let the user continue — sync will retry on next change
         syncedRef.current = true;
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [userId, isLoaded]);
 
-  // ── On every progress change: debounced push to cloud ──
   useEffect(() => {
     if (!userId) return;
-
     const unsubscribe = useProgress.subscribe((state) => {
       if (!syncedRef.current) return;
-
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
       pushTimerRef.current = setTimeout(async () => {
         try {
           const ref = doc(db, 'progress', userId);
-          const payload = {
-            ...extractProgress(useProgress.getState()),
-            lastSync: new Date().toISOString(),
-          };
+          const payload = { ...extractProgress(useProgress.getState()), lastSync: new Date().toISOString() };
           await setDoc(ref, payload);
         } catch (e) {
           console.warn('[sync] push failed:', e);
         }
       }, SYNC_DEBOUNCE_MS);
     });
-
-    return () => {
-      unsubscribe();
-      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
-    };
+    return () => { unsubscribe(); if (pushTimerRef.current) clearTimeout(pushTimerRef.current); };
   }, [userId]);
 }
 
@@ -98,22 +80,44 @@ function extractProgress(state) {
     totalChallenges: state.totalChallenges || 0,
     correctChallenges: state.correctChallenges || 0,
     streak: state.streak || 0,
+    currentStreak: state.currentStreak || 0,
+    longestStreak: state.longestStreak || 0,
+    lastStreakDate: state.lastStreakDate || null,
+    lastDailyChallengeDate: state.lastDailyChallengeDate || null,
+    dailyChallengesCompleted: state.dailyChallengesCompleted || 0,
+    streakFreezes: state.streakFreezes ?? 2, // 🆕
+    totalFreezesUsed: state.totalFreezesUsed || 0, // 🆕
+    unlockedAchievements: state.unlockedAchievements || {},
+    lastActiveModuleId: state.lastActiveModuleId || null,
+    bookmarks: state.bookmarks || {},
+    notes: state.notes || {},
+    lastVisit: state.lastVisit || null,
   };
 }
 
 function mergeProgress(local, cloud) {
-  const completedLessons = {
-    ...(cloud.completedLessons || {}),
-    ...(local.completedLessons || {}),
-  };
-
+  const completedLessons = { ...(cloud.completedLessons || {}), ...(local.completedLessons || {}) };
   const completedChallenges = { ...(cloud.completedChallenges || {}) };
   for (const [key, val] of Object.entries(local.completedChallenges || {})) {
-    if (completedChallenges[key] === undefined) {
-      completedChallenges[key] = val;
-    } else {
-      completedChallenges[key] = completedChallenges[key] || val;
-    }
+    if (completedChallenges[key] === undefined) completedChallenges[key] = val;
+    else completedChallenges[key] = completedChallenges[key] || val;
+  }
+
+  const unlockedAchievements = { ...(cloud.unlockedAchievements || {}) };
+  for (const [id, ts] of Object.entries(local.unlockedAchievements || {})) {
+    if (!unlockedAchievements[id] || ts < unlockedAchievements[id]) unlockedAchievements[id] = ts;
+  }
+
+  const bookmarks = { ...(cloud.bookmarks || {}) };
+  for (const [k, ts] of Object.entries(local.bookmarks || {})) {
+    if (!bookmarks[k] || ts < bookmarks[k]) bookmarks[k] = ts;
+  }
+
+  const notes = { ...(cloud.notes || {}) };
+  for (const [k, entry] of Object.entries(local.notes || {})) {
+    if (!entry || !entry.text) continue;
+    const cloudEntry = notes[k];
+    if (!cloudEntry || (entry.updatedAt || 0) > (cloudEntry.updatedAt || 0)) notes[k] = entry;
   }
 
   const xp = Math.max(local.xp || 0, cloud.xp || 0);
@@ -127,5 +131,17 @@ function mergeProgress(local, cloud) {
     totalChallenges,
     correctChallenges,
     streak: Math.max(local.streak || 0, cloud.streak || 0),
+    currentStreak: Math.max(local.currentStreak || 0, cloud.currentStreak || 0),
+    longestStreak: Math.max(local.longestStreak || 0, cloud.longestStreak || 0),
+    lastStreakDate: local.lastStreakDate || cloud.lastStreakDate || null,
+    lastDailyChallengeDate: local.lastDailyChallengeDate || cloud.lastDailyChallengeDate || null,
+    dailyChallengesCompleted: Math.max(local.dailyChallengesCompleted || 0, cloud.dailyChallengesCompleted || 0),
+    streakFreezes: Math.min(local.streakFreezes ?? 2, cloud.streakFreezes ?? 2), // 🆕 Take MIN to reflect used freezes
+    totalFreezesUsed: Math.max(local.totalFreezesUsed || 0, cloud.totalFreezesUsed || 0), // 🆕 Take MAX
+    unlockedAchievements,
+    lastActiveModuleId: local.lastActiveModuleId || cloud.lastActiveModuleId || null,
+    bookmarks,
+    notes,
+    lastVisit: local.lastVisit || cloud.lastVisit || null,
   };
 }
