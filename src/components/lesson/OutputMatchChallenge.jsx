@@ -1,6 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useProgress from '../../store/useProgress';
+import CodeBlock from './CodeBlock';
 import { runOutputMatch } from '../../lib/pyodide';
+
+// 🛑 Helper: Check if code can run in Pyodide (browser)
+function canRunInBrowser(code) {
+  if (!code) return false;
+  const blockedPatterns = [
+    /^\s*import\s+flask/m,
+    /^\s*from\s+flask\s+import/m,
+    /^\s*import\s+django/m,
+    /^\s*from\s+django\s+import/m,
+    /app\.run\(/m,
+  ];
+  return !blockedPatterns.some((regex) => regex.test(code));
+}
 
 export default function OutputMatchChallenge({
   moduleId,
@@ -9,47 +23,47 @@ export default function OutputMatchChallenge({
   index,
   total,
 }) {
+  const [code, setCode] = useState(challenge.starterCode || '');
+  const [output, setOutput] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+
   const { addXp, recordChallenge, completedChallenges } = useProgress();
   const challengeKey = `${moduleId}:${lessonId}:${challenge.id}`;
   const alreadyAnswered = challengeKey in completedChallenges;
+  
+  const isRunnable = canRunInBrowser(code);
 
-  const [code, setCode] = useState(
-    alreadyAnswered ? challenge.solution : challenge.starterCode
-  );
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState(null);
-  const [attempts, setAttempts] = useState(0);
-  const [showHint, setShowHint] = useState(false);
-  const [showSolution, setShowSolution] = useState(false);
-  const [completed, setCompleted] = useState(alreadyAnswered);
+  // Reset state when challenge changes
+  useEffect(() => {
+    setCode(challenge.starterCode || '');
+    setOutput(null);
+    setRevealed(false);
+  }, [challenge]);
 
   const handleRun = async () => {
-    if (running || completed) return;
+    if (running || !isRunnable) return;
     setRunning(true);
-    setResult(null);
+    setOutput(null);
     try {
       const res = await runOutputMatch(code, challenge.expectedOutput);
-      setResult(res);
-      setAttempts((a) => a + 1);
+      setOutput(res);
+      setRevealed(true);
 
-      if (res.passed && !completed) {
-        setCompleted(true);
-        recordChallenge(moduleId, lessonId, challenge.id, true);
-        if (!alreadyAnswered) addXp(challenge.xp);
+      const correct = res.passed;
+      recordChallenge(moduleId, lessonId, challenge.id, correct, challenge.type);
+      if (correct && !alreadyAnswered) {
+        addXp(challenge.xp);
       }
     } catch (e) {
-      setResult({ actual: '', expected: '', passed: false, error: e.message });
+      setOutput({ error: e.message || String(e), passed: false });
+      setRevealed(true);
     } finally {
       setRunning(false);
     }
   };
 
-  const handleReset = () => {
-    setCode(challenge.starterCode);
-    setResult(null);
-  };
-
-  const canRevealSolution = attempts >= 2 || completed;
+  const isCorrect = output && output.passed;
 
   return (
     <div className="animate-fade-in overflow-hidden rounded-2xl border border-surface-700 bg-surface-900/60">
@@ -69,205 +83,98 @@ export default function OutputMatchChallenge({
         </span>
       </div>
 
+      {/* Body */}
       <div className="space-y-4 p-4 sm:p-5">
         <p className="text-[15px] font-medium leading-relaxed text-slate-200">
           {challenge.question}
         </p>
 
-        {/* Expected output */}
-        <div className="overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-          <div className="border-b border-emerald-500/20 px-3 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-              🎯 Expected Output
-            </span>
+        {/* Expected Output */}
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+            🎯 Expected Output
           </div>
-          <pre className="overflow-x-auto p-3 text-[13px] font-mono text-emerald-300">
+          <pre className="font-mono text-[13px] text-emerald-300">
             {challenge.expectedOutput}
           </pre>
         </div>
 
-        {/* Editor */}
-        <div className="overflow-hidden rounded-xl border border-surface-700 bg-surface-950">
-          <div className="flex items-center justify-between border-b border-surface-800 px-3 py-2">
+        {/* Code Editor */}
+        <div className="overflow-hidden rounded-xl border border-surface-700 bg-surface-900">
+          <div className="flex items-center justify-between border-b border-surface-800 bg-surface-950/40 px-3 py-2">
             <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-500/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
-              <span className="ml-2 text-[11px] font-medium uppercase tracking-wider text-surface-600">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-surface-600">
                 main.py
               </span>
             </div>
-            {!completed && (
-              <button
-                onClick={handleReset}
-                className="text-[11px] font-medium text-surface-600 transition-colors hover:text-white"
-              >
-                ↻ Reset
-              </button>
-            )}
+            <button
+              onClick={() => setCode(challenge.starterCode || '')}
+              className="text-[11px] text-surface-600 transition-colors hover:text-white"
+            >
+              ↻ Reset
+            </button>
           </div>
           <textarea
             value={code}
             onChange={(e) => setCode(e.target.value)}
             spellCheck={false}
-            rows={8}
-            disabled={completed}
-            className="w-full resize-y bg-surface-950 p-4 font-mono text-[13px] leading-relaxed text-slate-200 outline-none disabled:opacity-70"
+            className="h-48 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-slate-200 outline-none"
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleRun}
-            disabled={running || completed}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition-all hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50"
-          >
-            {running ? (
-              <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                <span>Running…</span>
-              </>
-            ) : (
-              <>
-                <span>▶</span>
-                <span>Run</span>
-              </>
-            )}
-          </button>
-
-          {challenge.hint && (
+        {/* Run Button & Output */}
+        <div className="flex flex-col gap-3">
+          {!isRunnable ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[12px] text-amber-300">
+              ⚠️ This code contains a web framework import (like Flask/Django). It cannot be executed in the browser environment. Please use the simulation code or revert to the starter code.
+            </div>
+          ) : (
             <button
-              onClick={() => setShowHint((v) => !v)}
-              className="rounded-lg border border-surface-700 px-3 py-2 text-[12px] font-medium text-surface-500 transition-colors hover:border-surface-600 hover:text-white"
+              onClick={handleRun}
+              disabled={running}
+              className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-brand-500 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.01] disabled:opacity-60"
             >
-              {showHint ? 'Hide Hint' : '💡 Hint'}
+              {running ? '⏳ Running...' : '▶ Run'}
             </button>
           )}
 
-          {challenge.solution && canRevealSolution && (
-            <button
-              onClick={() => setShowSolution((v) => !v)}
-              className="rounded-lg border border-surface-700 px-3 py-2 text-[12px] font-medium text-surface-500 transition-colors hover:border-surface-600 hover:text-white"
+          {output && (
+            <div
+              className={`rounded-xl border p-4 ${
+                isCorrect
+                  ? 'border-emerald-500/40 bg-emerald-500/5'
+                  : 'border-rose-500/40 bg-rose-500/5'
+              }`}
             >
-              {showSolution ? 'Hide Solution' : '🔓 Solution'}
-            </button>
-          )}
-        </div>
-
-        {/* Hint */}
-        {showHint && challenge.hint && (
-          <div className="animate-slide-up rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
-            <div className="mb-1.5 flex items-center gap-2">
-              <span className="text-sm">💡</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
-                Hint
-              </span>
-            </div>
-            <p className="text-[13px] leading-relaxed text-slate-300">
-              {challenge.hint}
-            </p>
-          </div>
-        )}
-
-        {/* Result */}
-        {result && <OutputMatchResult result={result} />}
-
-        {/* Solution */}
-        {showSolution && challenge.solution && (
-          <div className="animate-slide-up overflow-hidden rounded-xl border border-surface-700 bg-surface-950">
-            <div className="border-b border-surface-800 px-3 py-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-surface-500">
-                Reference Solution
-              </span>
-            </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-slate-200">
-              <code>{challenge.solution}</code>
-            </pre>
-          </div>
-        )}
-
-        {/* Completion */}
-        {completed && (
-          <div className="animate-slide-up rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-base">🎉</span>
-              <span className="text-sm font-semibold text-emerald-400">
-                Output matched!
-              </span>
-              {!alreadyAnswered && (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
-                  +{challenge.xp} XP
+              <div className="mb-2 flex items-center justify-between">
+                <span
+                  className={`text-sm font-semibold ${
+                    isCorrect ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  {isCorrect ? '✓ Match Found!' : '✗ Mismatch'}
                 </span>
-              )}
+              </div>
+              <div className="space-y-2 font-mono text-[12px]">
+                <div>
+                  <span className="text-surface-600">Your Output:</span>
+                  <pre className={`mt-1 p-2 rounded bg-surface-950 ${isCorrect ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    {output.error ? output.error : output.actual}
+                  </pre>
+                </div>
+                {!isCorrect && (
+                  <div>
+                    <span className="text-surface-600">Expected:</span>
+                    <pre className="mt-1 p-2 rounded bg-surface-950 text-emerald-300">
+                      {output.expected}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-[13px] leading-relaxed text-slate-300">
-              {challenge.explanation}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function OutputMatchResult({ result }) {
-  if (result.error) {
-    return (
-      <div className="animate-slide-up rounded-xl border border-rose-500/40 bg-rose-500/5 p-4">
-        <div className="mb-1.5 text-sm font-semibold text-rose-400">
-          Runtime error
+          )}
         </div>
-        <pre className="whitespace-pre-wrap text-[12px] font-mono text-rose-300">
-          {result.error}
-        </pre>
       </div>
-    );
-  }
-
-  return (
-    <div
-      className={`animate-slide-up rounded-xl border p-4 ${
-        result.passed
-          ? 'border-emerald-500/40 bg-emerald-500/5'
-          : 'border-rose-500/40 bg-rose-500/5'
-      }`}
-    >
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-base">{result.passed ? '🎉' : '💭'}</span>
-        <span
-          className={`text-sm font-semibold ${
-            result.passed ? 'text-emerald-400' : 'text-rose-400'
-          }`}
-        >
-          {result.passed ? 'Output matched!' : 'Output did not match'}
-        </span>
-      </div>
-
-      {!result.passed && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="overflow-hidden rounded-lg border border-emerald-500/30 bg-emerald-500/5">
-            <div className="border-b border-emerald-500/20 px-3 py-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-                Expected
-              </span>
-            </div>
-            <pre className="overflow-x-auto p-3 text-[12px] font-mono text-emerald-300">
-              {result.expected || '(empty)'}
-            </pre>
-          </div>
-          <div className="overflow-hidden rounded-lg border border-rose-500/30 bg-rose-500/5">
-            <div className="border-b border-rose-500/20 px-3 py-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-400">
-                Your Output
-              </span>
-            </div>
-            <pre className="overflow-x-auto p-3 text-[12px] font-mono text-rose-300">
-              {result.actual || '(no output)'}
-            </pre>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

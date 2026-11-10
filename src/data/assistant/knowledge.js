@@ -2623,4 +2623,213 @@ export const knowledge = [
     code: '# The whole ML project in 7 lines:\n# df = pd.read_csv(...)                    # 1. load\n# X_tr, X_te = train_test_split(...)       # 2. split\n# X_tr = engineer(X_tr)                    # 3. features\n# model = LogisticRegression()             # 4. choose\n# model.fit(X_tr, y_tr)                    # 5. train\n# score = model.score(X_te, y_te)          # 6. evaluate\n# print(model.coef_)                       # 7. interpret',
     lessonLink: { moduleId: 'ml', lessonId: 'ml-capstone' },
   },
+
+  
+  /* ═══════════════════════════════════════════
+     STATISTICS
+     ═══════════════════════════════════════════ */
+  {
+    id: 'stat-what-is',
+    keywords: ['statistics', 'what is statistics', 'descriptive', 'inferential'],
+    question: 'What is Statistics?',
+    answer:
+      'Statistics is the science of making sense of data. It has two main parts: **Descriptive** (summarizing the data you have, like finding the average) and **Inferential** (using a small sample to draw conclusions about a larger population).',
+    code: '# Descriptive: average score of 30 students\n# Inferential: predicting election results from 1000 voters',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-intro' },
+  },
+  {
+    id: 'stat-mean-median-mode',
+    keywords: ['mean', 'median', 'mode', 'average', 'difference'],
+    question: 'What is the difference between Mean, Median, and Mode?',
+    answer:
+      '**Mean:** The average (sum / count). **Median:** The middle value when sorted. **Mode:** The most frequent value. Use the Median when your data has **outliers** (like income or house prices) because the mean gets skewed. Use Mode for categories (like favorite color).',
+    code: 'import numpy as np\narr = [10, 20, 20, 30, 1000]\nprint(np.mean(arr))   # 216 (Skewed by 1000)\nprint(np.median(arr)) # 20  (True middle)',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-mean-median' },
+  },
+  {
+    id: 'stat-variance-std',
+    keywords: ['variance', 'standard deviation', 'spread', 'std'],
+    question: 'What is Variance and Standard Deviation?',
+    answer:
+      'They measure how **spread out** the data is. Variance is the average squared distance from the mean. Standard deviation is the square root of variance, so it is in the same units as your data. A low std means data is tightly packed; a high std means it is spread wide.',
+    code: 'import numpy as np\narr = [2, 4, 4, 4, 5, 5, 7, 9]\nprint(np.var(arr))  # 4.0\nprint(np.std(arr))  # 2.0',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-variance' },
+  },
+  {
+    id: 'stat-iqr-outliers',
+    keywords: ['percentile', 'quartile', 'iqr', 'outlier', 'box plot'],
+    question: 'How do I find outliers in data?',
+    answer:
+      'Use the IQR method. Find Q1 (25th percentile) and Q3 (75th percentile). IQR = Q3 - Q1. Any value below Q1 - 1.5*IQR or above Q3 + 1.5*IQR is considered an outlier.',
+    code: 'import numpy as np\nq1 = np.percentile(data, 25)\nq3 = np.percentile(data, 75)\niqr = q3 - q1\noutliers = data[(data < q1 - 1.5*iqr) | (data > q3 + 1.5*iqr)]',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-percentiles' },
+  },
+  {
+    id: 'stat-correlation',
+    keywords: ['correlation', 'causation', 'r', 'relationship'],
+    question: 'What is correlation?',
+    answer:
+      'Correlation (r) measures how strongly two variables move together. It ranges from -1 to 1. **Crucial rule:** Correlation does NOT imply causation. Ice cream sales and shark attacks are correlated, but ice cream does not cause shark attacks (summer causes both).',
+    code: 'import numpy as np\nx = [1, 2, 3, 4, 5]\ny = [2, 4, 6, 8, 10]\nprint(np.corrcoef(x, y)[0, 1]) # 1.0 (Perfect positive)',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-correlation' },
+  },
+  {
+    id: 'stat-clt',
+    keywords: ['central limit theorem', 'clt', 'sampling distribution'],
+    question: 'What is the Central Limit Theorem?',
+    answer:
+      'It says that if you take many random samples from ANY distribution, the distribution of their **sample means** will look like a Normal Distribution (bell curve). This is why we can use normal-based tests (like t-tests) on data that isn\'t normally distributed.',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-sampling' },
+  },
+  {
+    id: 'stat-p-value',
+    keywords: ['p-value', 'hypothesis', 'null', 'significance', 'p value'],
+    question: 'What is a p-value?',
+    answer:
+      'A p-value is the probability of getting a result as extreme as yours, ASSUMING the null hypothesis is true. If p < 0.05, we usually "reject the null" and say the result is statistically significant. It does NOT mean the hypothesis is 95% likely to be true.',
+    lessonLink: { moduleId: 'statistics', lessonId: 'stat-hypothesis' },
+  },
+
+  /* ═══════════════════════════════════════════
+     PROBABILITY
+     ═══════════════════════════════════════════ */
+  {
+    id: 'prob-basics',
+    keywords: ['probability', 'chance', 'odds', 'coin', 'dice'],
+    question: 'What is probability?',
+    answer:
+      'A number between 0 and 1 measuring how likely an event is. P(A) = (Favorable outcomes) / (Total outcomes). 0 means impossible, 1 means certain. The complement rule says P(not A) = 1 - P(A).',
+    code: '# Probability of rolling a 4 on a die\np = 1/6\nprint(f"{p:.3f}") # 0.167',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-basics' },
+  },
+  {
+    id: 'prob-and-or',
+    keywords: ['and', 'or', 'addition', 'multiplication', 'independent'],
+    question: 'What are the AND / OR rules in probability?',
+    answer:
+      '**OR (Addition):** P(A or B) = P(A) + P(B) - P(A and B). (Subtract overlap).\n**AND (Multiplication):** For INDEPENDENT events, P(A and B) = P(A) * P(B).',
+    code: '# Flip two coins: P(heads AND heads)\nprint(0.5 * 0.5) # 0.25',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-rules' },
+  },
+  {
+    id: 'prob-conditional',
+    keywords: ['conditional', 'given', 'dependent'],
+    question: 'What is conditional probability?',
+    answer:
+      'P(A|B) means "Probability of A given B". It is the probability that A happens, knowing for a fact that B happened. P(A|B) = P(A and B) / P(B). If A and B are independent, P(A|B) = P(A).',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-conditional' },
+  },
+  {
+    id: 'prob-bayes',
+    keywords: ['bayes', 'bayes theorem', 'base rate', 'false positive'],
+    question: 'What is Bayes Theorem?',
+    answer:
+      'A formula to reverse a conditional probability: P(A|B) = [P(B|A) * P(A)] / P(B). It explains why a 99% accurate test for a rare disease (1 in 10,000) will mostly yield false positives. The base rate (how rare the disease is) dominates the result.',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-bayes' },
+  },
+  {
+    id: 'prob-expected-value',
+    keywords: ['expected value', 'expectation', 'ev', 'casino'],
+    question: 'What is Expected Value (EV)?',
+    answer:
+      'The long-term average outcome. EV = sum of (value * probability). Casinos use this. If you play a game with an EV of -₹5, you will lose ₹5 on average every time you play. Short-term luck does not beat long-term EV.',
+    code: 'outcomes = [20, -10]\nprobs = [1/6, 5/6]\nev = sum(x*p for x,p in zip(outcomes, probs))\nprint(ev) # -5.0',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-random-vars' },
+  },
+  {
+    id: 'prob-distributions',
+    keywords: ['distribution', 'binomial', 'uniform'],
+    question: 'What is a Binomial distribution?',
+    answer:
+      'The number of successes in `n` independent trials, each with probability `p`. Example: flip 10 coins, how many heads? `n=10`, `p=0.5`. Mean = n*p. Use `np.random.binomial(n, p, size)` to simulate.',
+    code: 'import numpy as np\n# 10 trials, 60% chance, 5 samples\nprint(np.random.binomial(10, 0.6, 5))',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-distributions' },
+  },
+  {
+    id: 'prob-normal',
+    keywords: ['normal', 'bell curve', 'gaussian', '68-95-99.7', 'z-score'],
+    question: 'What is the Normal Distribution?',
+    answer:
+      'The famous bell curve. It is defined by mean (μ) and standard deviation (σ). It follows the **Empirical Rule**: 68% of data is within 1σ, 95% within 2σ, and 99.7% within 3σ. A z-score tells you how many standard deviations a value is from the mean: z = (x - μ) / σ.',
+    code: '# Z-score of 130, with mean 100 and std 15\nz = (130 - 100) / 15\nprint(z) # 2.0 (2 standard deviations above mean)',
+    lessonLink: { moduleId: 'probability', lessonId: 'prob-normal' },
+  },
+
+  /* ═══════════════════════════════════════════
+     FLASK
+     ═══════════════════════════════════════════ */
+  {
+    id: 'flask-what-is',
+    keywords: ['flask', 'micro', 'web', 'framework'],
+    question: 'What is Flask?',
+    answer:
+      'A minimal Python web framework. It is called a "micro" framework because it gives you the core (routing) and lets you add databases, authentication, and templates yourself. Perfect for APIs and small apps.',
+    code: 'from flask import Flask\napp = Flask(__name__)\n\n@app.route("/")\ndef home():\n    return "Hello!"',
+    lessonLink: { moduleId: 'flask', lessonId: 'flask-basics' },
+  },
+  {
+    id: 'flask-routing',
+    keywords: ['route', 'routing', 'get', 'post', 'method'],
+    question: 'How does routing work in Flask?',
+    answer:
+      'Use the `@app.route("/path")` decorator. For different HTTP methods, add `methods=["GET", "POST"]`. Dynamic URLs use `<variable>`, like `/user/<username>`.',
+    code: '@app.route("/login", methods=["GET", "POST"])\ndef login():\n    if request.method == "POST":\n        return "Logging in..."\n    return "Show form"',
+    lessonLink: { moduleId: 'flask', lessonId: 'flask-routing' },
+  },
+  {
+    id: 'flask-request-response',
+    keywords: ['request', 'response', 'args', 'jsonify', 'status code'],
+    question: 'How do I get data from a request in Flask?',
+    answer:
+      'Use the global `request` object. `request.args` for URL query params (`?q=hello`). `request.form` for HTML forms. `request.json` for JSON bodies. Return `jsonify(dict)` to send JSON back to the client.',
+    code: 'from flask import request, jsonify\n\n@app.route("/api")\ndef api():\n    name = request.args.get("name", "Guest")\n    return jsonify({"message": f"Hello {name}"})',
+    lessonLink: { moduleId: 'flask', lessonId: 'flask-requests' },
+  },
+  {
+    id: 'flask-templates',
+    keywords: ['template', 'jinja', 'render_template', 'html'],
+    question: 'How do I render HTML in Flask?',
+    answer:
+      'Use Jinja2 templates. Put HTML files in a `templates/` folder. Use `render_template("file.html", var=data)`. Inside the HTML, use `{{ var }}` to print, and `{% for x in items %}` for loops.',
+    code: 'from flask import render_template\n\n@app.route("/home")\ndef home():\n    return render_template("index.html", user="Ada")',
+    lessonLink: { moduleId: 'flask', lessonId: 'flask-templates' },
+  },
+
+  /* ═══════════════════════════════════════════
+     DJANGO
+     ═══════════════════════════════════════════ */
+  {
+    id: 'django-what-is',
+    keywords: ['django', 'mtv', 'batteries', 'framework'],
+    question: 'What is Django?',
+    answer:
+      'A "batteries-included" Python web framework. Unlike Flask, it gives you everything out of the box: an ORM (database), Admin panel, and Auth. It uses the **MTV** pattern: Model (DB), Template (HTML), View (Logic).',
+    lessonLink: { moduleId: 'django', lessonId: 'django-basics' },
+  },
+  {
+    id: 'django-orm',
+    keywords: ['model', 'orm', 'database', 'queryset', 'objects'],
+    question: 'How does the Django ORM work?',
+    answer:
+      'You define a class inheriting from `models.Model`. Each attribute is a column. You never write SQL. Use `Book.objects.all()` to get all, `Book.objects.filter(year__gte=2020)` to filter, or `Book.objects.create(...)` to insert.',
+    code: 'class Book(models.Model):\n    title = models.CharField(max_length=100)\n\n# Query\nbooks = Book.objects.filter(title__contains="Python")',
+    lessonLink: { moduleId: 'django', lessonId: 'django-models' },
+  },
+  {
+    id: 'django-views-urls',
+    keywords: ['view', 'url', 'routing', 'path'],
+    question: 'How do Views and URLs work in Django?',
+    answer:
+      '`urls.py` maps paths to views: `path("books/", views.book_list)`. The view function receives the `request`, fetches data from Models, and returns a response using `render()` or `HttpResponse()`.',
+    code: 'from django.shortcuts import render\n\ndef book_list(request):\n    books = Book.objects.all()\n    return render(request, "list.html", {"books": books})',
+    lessonLink: { moduleId: 'django', lessonId: 'django-views' },
+  },
+  {
+    id: 'django-admin',
+    keywords: ['admin', 'panel', 'dashboard'],
+    question: 'How do I get an Admin panel in Django?',
+    answer:
+      'It comes built-in. Just register your models in `admin.py` (`admin.site.register(Book)`), run the server, and go to `/admin`. You instantly get a full CRUD interface to create, read, update, and delete records.',
+    lessonLink: { moduleId: 'django', lessonId: 'django-capstone' },
+  },
 ];

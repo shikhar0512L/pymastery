@@ -3,6 +3,41 @@ import MathText from './MathText';
 import Graph from './Graph';
 import SliderSimulation from './SliderSimulation';
 
+// 🛑 Helper: Check if code can run in Pyodide (browser)
+function canRunInBrowser(code, language = 'python') {
+  if (!code) return false;
+
+  // 1. Only Python (or Py) language is runnable
+  const lang = (language || 'python').toLowerCase();
+  if (lang !== 'python' && lang !== 'py') {
+    return false;
+  }
+
+  // 2. Block web frameworks, Jinja2, HTML, and CLI commands
+  const blockedPatterns = [
+    // Flask
+    /^\s*import\s+flask/m,
+    /^\s*from\s+flask/m,
+    /app\.run\(/m,
+    
+    // Django (imports, models, ORM, CLI)
+    /^\s*import\s+django/m,
+    /^\s*from\s+django/m,
+    /\bmodels\.\w+/m,          // e.g., models.Model, models.CharField
+    /\b\w+\.objects\./m,       // e.g., Book.objects.all()
+    /python\s+manage\.py/m,    // CLI commands
+    
+    // HTML / Jinja2
+    /\{%/m,                    // Jinja2 block tags
+    /\{#/m,                    // Jinja2 comment tags
+    /<!DOCTYPE/m,              // HTML doctype
+    /<html/m,                  // HTML tag
+    /<\/[a-z]+>/m,             // Closing HTML tags
+  ];
+
+  return !blockedPatterns.some((regex) => regex.test(code));
+}
+
 export default function SectionRenderer({ section }) {
   switch (section.type) {
     case 'text':
@@ -58,7 +93,7 @@ export default function SectionRenderer({ section }) {
             code={section.code}
             output={section.output}
             language={section.language || 'python'}
-            runnable
+            runnable={canRunInBrowser(section.code, section.language)}
           />
         </div>
       );

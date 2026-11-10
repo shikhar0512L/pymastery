@@ -12,6 +12,8 @@ const AUTO_LOAD_PACKAGES = [
   'matplotlib',    // plotting
   'scipy',         // scientific computing
   'scikit-learn',  // machine learning module
+  'flask',
+  'django',
 ];
 
 let pyodidePromise = null;

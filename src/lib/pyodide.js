@@ -75,7 +75,7 @@ function loadScript(src) {
       reject(new Error('Failed to load Pyodide from CDN'));
     document.head.appendChild(script);
   });
-};
+}
 
 export function getPyodide() {
   if (!pyodidePromise) {
@@ -135,8 +135,6 @@ function codeNeedsSklearn(code) {
 }
 
 // Ensure packages are loaded before running code.
-// - Primary (numpy, pandas): always awaited
-// - Background (matplotlib, sklearn): awaited only if the code needs it
 async function ensurePackages(needsSklearn = false) {
   if (primaryPromise) {
     try {
@@ -199,16 +197,8 @@ export async function runCodeChallenge(userCode, tests) {
   // ═══════════════════════════════════════════════════════════
   //  Test runner — deeply defensive value normalization
   //
-  //  Handles:
-  //   • NumPy 2.x scalar reprs (np.int64(5) → 5)
-  //   • NumPy arrays (array([1,2,3]) → [1, 2, 3])
-  //   • Sets / frozensets → sorted for deterministic order
-  //   • Nested sets inside lists/dicts/tuples
-  //   • Dict key ordering → sorted
-  //   • Negative zero → positive zero
-  //   • Mixed-type sets (fallback key=repr)
-  //   • Trailing whitespace in expected strings
-  //   • Multi-line test inputs (exec all but last, eval the last)
+  //  Uses AST parsing to correctly handle assignments inside
+  //  single-line test inputs (e.g., "a = 1; a + 1").
   // ═══════════════════════════════════════════════════════════
   const PYTHON_RUNNER = `
 import json as __pym_json
@@ -223,7 +213,6 @@ def __pym_norm_value(v, depth=0):
     if depth > 12:
         return repr(v)
 
-    # NumPy detection (soft import)
     try:
         import numpy as __pym_np
     except Exception:
@@ -231,15 +220,13 @@ def __pym_norm_value(v, depth=0):
 
     if __pym_np is not None:
         if isinstance(v, __pym_np.generic):
-            v = v.item()                  # np.int64(5) → 5
+            v = v.item()
         elif isinstance(v, __pym_np.ndarray):
-            v = v.tolist()                # array([1,2,3]) → [1, 2, 3]
+            v = v.tolist()
 
-    # Negative zero → positive zero
     if isinstance(v, float) and v == 0.0:
         v = 0.0
 
-    # Sets — sort for deterministic order
     if isinstance(v, (set, frozenset)):
         try:
             items = sorted(v)
@@ -249,17 +236,14 @@ def __pym_norm_value(v, depth=0):
             return 'set()' if isinstance(v, set) else 'frozenset()'
         return '{' + ', '.join(__pym_norm_value(x, depth + 1) for x in items) + '}'
 
-    # Lists — recurse
     if isinstance(v, list):
         return '[' + ', '.join(__pym_norm_value(x, depth + 1) for x in v) + ']'
 
-    # Tuples — handle single-element trailing comma
     if isinstance(v, tuple):
         if len(v) == 1:
             return '(' + __pym_norm_value(v[0], depth + 1) + ',)'
         return '(' + ', '.join(__pym_norm_value(x, depth + 1) for x in v) + ')'
 
-    # Dicts — sort by keys
     if isinstance(v, dict):
         try:
             items = sorted(v.items())
@@ -272,7 +256,6 @@ def __pym_norm_value(v, depth=0):
             for k, val in items
         ) + '}'
 
-    # Fallback
     return repr(v)
 
 def __pym_norm_expected(s):
@@ -284,6 +267,26 @@ def __pym_norm_expected(s):
         return __pym_norm_value(val)
     except Exception:
         return s
+
+def __pym_run_code(code, ns):
+    try:
+        tree = __pym_ast.parse(code, mode='exec')
+    except SyntaxError as e:
+        raise e
+    if not tree.body:
+        return None
+    
+    last_expr = None
+    if isinstance(tree.body[-1], __pym_ast.Expr):
+        last_expr = __pym_ast.Expression(tree.body.pop().value)
+    
+    if tree.body:
+        exec(compile(tree, '<string>', 'exec'), ns)
+    
+    if last_expr:
+        result = eval(compile(last_expr, '<string>', 'eval'), ns)
+        return result
+    return None
 
 def __pym_run_tests():
     user_code = __pym_user_code
@@ -299,13 +302,11 @@ def __pym_run_tests():
             ns = {}
             exec(user_code, ns)
             raw = t['input'].strip()
-            lines = raw.split('\\n')
-            if len(lines) == 1:
-                result = eval(lines[0], ns)
+            if not raw:
+                actual = 'None'
             else:
-                exec('\\n'.join(lines[:-1]), ns)
-                result = eval(lines[-1], ns)
-            actual = __pym_norm_value(result)
+                result = __pym_run_code(raw, ns)
+                actual = __pym_norm_value(result) if result is not None else 'None'
         except Exception as e:
             error = type(e).__name__ + ": " + str(e)
         finally:
